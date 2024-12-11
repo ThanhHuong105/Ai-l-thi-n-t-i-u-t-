@@ -4,7 +4,7 @@ import csv
 import random
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import asyncio
 
 # Token bot Telegram
@@ -67,9 +67,10 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("❌ Lỗi: Không thể tải câu hỏi. Vui lòng thử lại sau.")
         return
 
+    random.shuffle(questions)  # Xáo trộn câu hỏi
     total_score = 0
-    for i in range(1, 21):  # Lặp qua 20 câu hỏi
-        question_data = random.choice(questions)
+
+    for i, question_data in enumerate(questions[:20], start=1):
         question = question_data["Question"]
         options = [
             InlineKeyboardButton(question_data["Option 1"], callback_data="1"),
@@ -84,7 +85,6 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             text=f"💬 Câu {i}: {question}", reply_markup=reply_markup
         )
 
-        # Chờ phản hồi hoặc hết 60 giây
         try:
             query = await context.bot.wait_for(
                 "callback_query",
@@ -99,9 +99,15 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await query.answer("👍 Chính xác!", show_alert=True)
             else:
                 await query.answer("😥 Sai rồi!", show_alert=True)
+                await update.message.reply_text(
+                    text=f"Đáp án đúng là: {question_data[f'Option {correct_answer}']}"
+                )
 
         except asyncio.TimeoutError:
             await update.message.reply_text("⏳ Hết thời gian cho câu này!")
+            await update.message.reply_text(
+                text=f"Đáp án đúng là: {question_data[f'Option {correct_answer}']}"
+            )
 
         # Thông báo điểm số lũy kế
         await update.message.reply_text(f"💯 Điểm hiện tại: {total_score}/{i}")
