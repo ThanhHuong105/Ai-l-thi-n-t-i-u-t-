@@ -132,3 +132,14 @@ def run_bot():
 if __name__ == "__main__":
     run_bot()
 
+import requests
+
+def check_telegram_connection():
+    url = f"https://api.telegram.org/bot{TOKEN}/getMe"
+    response = requests.get(url)
+    if response.status_code == 200:
+        print("Kết nối đến Telegram thành công.")
+    else:
+        print("Kết nối đến Telegram thất bại.", response.status_code, response.text)
+
+check_telegram_connection()
