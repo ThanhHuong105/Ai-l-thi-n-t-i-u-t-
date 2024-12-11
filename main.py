@@ -1,18 +1,27 @@
-from telegram import Update, ParseMode
-from telegram.ext import Updater, CommandHandler, CallbackContext
+import logging
+from telegram import Update
+from telegram.constants import ParseMode
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Token bot Telegram
 TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"
 
+# Cấu hình logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
 # Hàm xử lý khi người dùng mở bot hoặc nhập /start
-def start(update: Update, context: CallbackContext) -> None:
+def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     update.message.reply_text(
         text="\U0001F525 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu.",
         parse_mode=ParseMode.HTML
     )
 
-# Hàm xử lý khi người dùng nhập /start để xem luật chơi
-def show_rules(update: Update, context: CallbackContext) -> None:
+# Hàm xử lý khi người dùng nhập /quiz để xem luật chơi
+def show_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     rules_message = (
         "\U0001F389 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>\n\n"
         "\U0001F4CB <b>Luật chơi:</b>\n"
@@ -28,18 +37,18 @@ def show_rules(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(text=rules_message, parse_mode=ParseMode.HTML)
 
 # Hàm chính để khởi chạy bot
-def main():
-    # Khởi tạo updater và dispatcher
-    updater = Updater(TOKEN)
-    dispatcher = updater.dispatcher
+async def main():
+    # Tạo ứng dụng bot
+    application = Application.builder().token(TOKEN).build()
 
     # Thêm các handler cho các lệnh
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("quiz", show_rules))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("quiz", show_rules))
 
-    # Bắt đầu bot
-    updater.start_polling()
-    updater.idle()
+    # Chạy bot
+    logger.info("Bot đang chạy...")
+    await application.run_polling()
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
