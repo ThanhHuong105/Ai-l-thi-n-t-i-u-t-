@@ -4,7 +4,7 @@ import csv
 import random
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 
 # Token bot Telegram
@@ -116,6 +116,16 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     await update.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
 
+# Hàm kiểm tra kết nối Telegram
+def check_telegram_connection():
+    url = f"https://api.telegram.org/bot{TOKEN}/getMe"
+    response = requests.get(url)
+    if response.status_code == 200:
+        logger.info("✅ Kết nối đến Telegram thành công.")
+    else:
+        logger.error(f"❌ Kết nối đến Telegram thất bại. {response.status_code} {response.text}")
+
+# Hàm chính để chạy bot
 def run_bot():
     application = Application.builder().token(TOKEN).build()
 
@@ -127,14 +137,7 @@ def run_bot():
     # Chạy bot
     logger.info("Bot đang chạy...")
     application.run_polling()
-import requests
 
-def check_telegram_connection():
-    url = f"https://api.telegram.org/bot{TOKEN}/getMe"
-    response = requests.get(url)
-    if response.status_code == 200:
-        print("✅ Kết nối đến Telegram thành công.")
-    else:
-        print(f"❌ Kết nối đến Telegram thất bại. Lỗi: {response.status_code} {response.text}")
-
+if __name__ == "__main__":
+    check_telegram_connection()
     run_bot()
