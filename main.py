@@ -1,7 +1,9 @@
 import logging
-from telegram import Update
-from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, ContextTypes
+import csv
+from telegram import Update, ParseMode, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+import random
+import asyncio
 
 # Token bot Telegram
 TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"
@@ -13,16 +15,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Hàm xử lý khi người dùng mở bot hoặc nhập /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
+# Đọc dữ liệu từ file CSV
+def load_questions_from_csv():
+    questions = []
+    with open("questions.csv", encoding="utf-8") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            questions.append(row)
+    return questions
+
+# Hàm xử lý khi người dùng mở bot
+def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    update.message.reply_text(
         text="\U0001F525 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu.",
         parse_mode=ParseMode.HTML
     )
 
-# Hàm xử lý khi người dùng nhập /quiz để xem luật chơi
-async def show_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    rules_message = (
+# Hàm xử lý khi người dùng nhập /start
+def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    welcome_message = (
         "\U0001F389 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>\n\n"
         "\U0001F4CB <b>Luật chơi:</b>\n"
         "- Có 20 câu hỏi với tổng số điểm tối đa là 20.\n"
@@ -34,136 +45,61 @@ async def show_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         "- Dưới 10 điểm: Cần học hỏi thêm!\n\n"
         "\U0001F449 Nhấn /quiz để bắt đầu!"
     )
-    await update.message.reply_text(text=rules_message, parse_mode=ParseMode.HTML)
+    update.message.reply_text(text=welcome_message, parse_mode=ParseMode.HTML)
 
-# Hàm chính để khởi chạy bot
-def main():
-    # Tạo ứng dụng bot
-    application = Application.builder().token(TOKEN).build()
+# Hàm xử lý khi người dùng nhập /quiz (phần câu hỏi)
+async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    questions = load_questions_from_csv()
 
-    # Thêm các handler cho các lệnh
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("quiz", show_rules))
+    total_score = 0
+    for i in range(1, 21):  # Lặp qua 20 câu hỏi
+        question_data = random.choice(questions)
+        question = question_data['Question']
+        options = [
+            InlineKeyboardButton(question_data['Option 1'], callback_data='1'),
+            InlineKeyboardButton(question_data['Option 2'], callback_data='2'),
+            InlineKeyboardButton(question_data['Option 3'], callback_data='3')
+        ]
+        correct_answer = str(question_data['Answer'])
 
-    # Chạy bot
-    logger.info("Bot đang chạy...")
-    application.run_polling()
+        # Gửi câu hỏi
+        reply_markup = InlineKeyboardMarkup.from_column(options)
+        message = await update.message.reply_text(
+            text=f"\U0001F4AC Câu {i}: {question}",
+            reply_markup=reply_markup
+        )
 
-if __name__ == "__main__":
-    main()
-import logging
-import asyncio
-import requests
-import csv
-from random import choice
-from telegram import Update, ParseMode
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+        # Chờ phản hồi hoặc hết 60 giây
+        try:
+            query: Update = await context.bot.wait_for(
+                "callback_query",
+                timeout=60,
+                check=lambda q: q.message.message_id == message.message_id
+            )
+            user_answer = query.data
 
-# Token bot Telegram
-TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"
+            # Kiểm tra câu trả lời đúng hay sai
+            if user_answer == correct_answer:
+                total_score += 1
+                await query.answer("\U0001F44D Chính xác!", show_alert=True)
+            else:
+                await query.answer("\U0001F625 Sai rồi!", show_alert=True)
 
-# ID Google Sheets và URL để tải bảng TTCK
-SHEET_ID = "1QMKiohAaO5QtHoQwBX5efTXCl_Q791A4GnoCe9nMV2w"
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=TTCK"
+        except asyncio.TimeoutError:
+            await update.message.reply_text("\u23F3 Hết thời gian cho câu này!")
 
-# Cấu hình logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+        # Thông báo điểm số lũy kế
+        await update.message.reply_text(f"\U0001F4AF Điểm hiện tại: {total_score}/{i}")
 
-# Hàm tải câu hỏi từ Google Sheets
-def fetch_questions_from_csv():
-    response = requests.get(SHEET_URL)
-    response.raise_for_status()  # Kiểm tra nếu lỗi xảy ra
-
-    questions = []
-    decoded_content = response.content.decode('utf-8')
-    csv_reader = csv.DictReader(decoded_content.splitlines())
-
-    for row in csv_reader:
-        questions.append(row)
-
-    return questions
-
-# Hàm lấy câu hỏi ngẫu nhiên
-def get_random_question():
-    questions = fetch_questions_from_csv()
-    return choice(questions)  # Chọn ngẫu nhiên một câu hỏi
-
-# Hàm xử lý khi người dùng mở bot hoặc nhập /start
-def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    update.message.reply_text(
-        text="\U0001F525 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /quiz để bắt đầu.",
-        parse_mode=ParseMode.HTML
+    # Kết thúc game
+    result_message = (
+        f"\U0001F3C6 Kết thúc game! Tổng điểm của bạn: {total_score}/20\n\n"
+        "\u2728 <b>Kết quả:</b>\n"
+        f"{'\U0001F947 Nhà đầu tư thiên tài!' if total_score > 15 else ''}"
+        f"{'\U0001F948 Nhà đầu tư tiềm năng!' if 10 <= total_score <= 15 else ''}"
+        f"{'\U0001F949 Cần học hỏi thêm!' if total_score < 10 else ''}"
     )
-
-# Hàm xử lý khi người dùng nhập /quiz để xem luật chơi
-def show_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    rules_message = (
-        "\U0001F389 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>\n\n"
-        "\U0001F4CB <b>Luật chơi:</b>\n"
-        "- Có 20 câu hỏi với tổng số điểm tối đa là 20.\n"
-        "- Mỗi câu trả lời đúng được 1 điểm.\n"
-        "- Nếu không trả lời trong 60 giây, bạn sẽ bị tính 0 điểm cho câu đó.\n\n"
-        "\u2728 <b>Mục tiêu của bạn:</b>\n"
-        "- Trên 15 điểm: Nhà đầu tư thiên tài.\n"
-        "- Từ 10 đến 15 điểm: Nhà đầu tư tiềm năng.\n"
-        "- Dưới 10 điểm: Cần học hỏi thêm!\n\n"
-        "\U0001F449 Nhấn /next để trả lời câu hỏi đầu tiên!"
-    )
-    update.message.reply_text(text=rules_message, parse_mode=ParseMode.HTML)
-
-# Hàm hiển thị câu hỏi và đếm ngược
-async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    question = get_random_question()
-
-    # Tạo nội dung câu hỏi
-    question_text = (
-        f"<b>Câu hỏi:</b> {question['Question']}\n\n"
-        f"1️⃣ {question['Option 1']}\n"
-        f"2️⃣ {question['Option 2']}\n"
-        f"3️⃣ {question['Option 3']}\n\n"
-        "Hãy trả lời bằng cách nhập số 1, 2 hoặc 3!"
-    )
-    await update.message.reply_text(text=question_text, parse_mode=ParseMode.HTML)
-
-    # Lưu câu hỏi hiện tại
-    context.user_data['current_question'] = question
-    context.user_data['answer_received'] = False  # Đánh dấu chưa nhận câu trả lời
-
-    # Đếm ngược 60 giây
-    for remaining in range(60, 0, -1):
-        if context.user_data.get('answer_received', False):  # Kiểm tra nếu đã trả lời
-            return
-        if remaining in [30, 10, 5]:
-            await update.message.reply_text(f"⏳ Còn {remaining} giây!")
-        await asyncio.sleep(1)
-
-    # Hết thời gian, thông báo
-    await update.message.reply_text("⏰ Hết thời gian! Bạn không trả lời câu hỏi này.")
-    context.user_data['current_question'] = None  # Xóa câu hỏi hiện tại
-
-# Hàm xử lý câu trả lời của người dùng
-def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_answer = update.message.text.strip()
-    question = context.user_data.get('current_question', None)
-
-    if not question:
-        update.message.reply_text("⛔ Bạn chưa bắt đầu câu hỏi nào. Nhấn /next để tiếp tục!")
-        return
-
-    # Kiểm tra câu trả lời
-    correct_answer = question['Answer']
-    if user_answer == correct_answer:
-        update.message.reply_text("✅ Chính xác! Bạn được 1 điểm.")
-    else:
-        update.message.reply_text(f"❌ Sai rồi! Đáp án đúng là: {correct_answer}.")
-
-    # Đánh dấu đã nhận câu trả lời
-    context.user_data['answer_received'] = True
-    context.user_data['current_question'] = None  # Xóa câu hỏi hiện tại
+    await update.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
 
 # Hàm chính để khởi chạy bot
 async def main():
@@ -172,9 +108,8 @@ async def main():
 
     # Thêm các handler cho các lệnh
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("quiz", show_rules))
-    application.add_handler(CommandHandler("next", ask_question))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_answer))
+    application.add_handler(CommandHandler("quiz", quiz))
+    application.add_handler(CommandHandler("welcome", welcome))
 
     # Chạy bot
     logger.info("Bot đang chạy...")
