@@ -139,4 +139,26 @@ def check_telegram_connection():
 
 check_telegram_connection()
 if __name__ == "__main__":
+    import requests
+
+def check_webhook():
+    url = f"https://api.telegram.org/bot{TOKEN}/getWebhookInfo"
+    response = requests.get(url)
+    if response.status_code == 200:
+        print("Webhook Info:", response.json())
+    else:
+        print("Failed to get Webhook Info:", response.status_code, response.text)
+
+check_webhook()
+
+def delete_webhook():
+    url = f"https://api.telegram.org/bot{TOKEN}/deleteWebhook"
+    response = requests.get(url)
+    if response.status_code == 200:
+        print("Webhook deleted successfully.")
+    else:
+        print("Failed to delete Webhook:", response.status_code, response.text)
+
+delete_webhook()
+
     run_bot()
