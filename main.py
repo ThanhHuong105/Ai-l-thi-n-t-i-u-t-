@@ -23,17 +23,18 @@ logger = logging.getLogger(__name__)
 
 # Hàm tải câu hỏi từ Google Sheets
 def fetch_questions_from_csv():
-    response = requests.get(SHEET_URL)
-    response.raise_for_status()  # Kiểm tra nếu lỗi xảy ra
-
-    questions = []
-    decoded_content = response.content.decode('utf-8')
-    csv_reader = csv.DictReader(decoded_content.splitlines())
-
-    for row in csv_reader:
-        questions.append(row)
-
-    return questions
+    try:
+        response = requests.get(SHEET_URL)
+        response.raise_for_status()  # Kiểm tra nếu lỗi xảy ra
+        questions = []
+        decoded_content = response.content.decode('utf-8')
+        csv_reader = csv.DictReader(decoded_content.splitlines())
+        for row in csv_reader:
+            questions.append(row)
+        return questions
+    except Exception as e:
+        logger.error(f"Lỗi khi tải câu hỏi: {e}")
+        return []
 
 # Hàm xử lý khi người dùng mở bot
 def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -61,6 +62,10 @@ def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Hàm xử lý khi người dùng nhập /quiz
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     questions = fetch_questions_from_csv()
+
+    if not questions:
+        await update.message.reply_text("❌ Lỗi: Không thể tải câu hỏi. Vui lòng thử lại sau.")
+        return
 
     total_score = 0
     for i in range(1, 21):  # Lặp qua 20 câu hỏi
