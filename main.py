@@ -118,8 +118,7 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
 
 # Hàm chính để khởi chạy bot
-async def main():
-    # Tạo ứng dụng bot
+def run_bot():
     application = Application.builder().token(TOKEN).build()
 
     # Thêm các handler cho các lệnh
@@ -129,7 +128,7 @@ async def main():
 
     # Chạy bot
     logger.info("Bot đang chạy...")
-    await application.run_polling()
+    application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    run_bot()
