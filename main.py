@@ -8,20 +8,20 @@ TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"
 
 # Cấu hình logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
 # Hàm xử lý khi người dùng mở bot hoặc nhập /start
-def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    update.message.reply_text(
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
         text="\U0001F525 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu.",
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 # Hàm xử lý khi người dùng nhập /quiz để xem luật chơi
-def show_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def show_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     rules_message = (
         "\U0001F389 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>\n\n"
         "\U0001F4CB <b>Luật chơi:</b>\n"
@@ -34,7 +34,7 @@ def show_rules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "- Dưới 10 điểm: Cần học hỏi thêm!\n\n"
         "\U0001F449 Nhấn /quiz để bắt đầu!"
     )
-    update.message.reply_text(text=rules_message, parse_mode=ParseMode.HTML)
+    await update.message.reply_text(text=rules_message, parse_mode=ParseMode.HTML)
 
 # Hàm chính để khởi chạy bot
 async def main():
@@ -51,4 +51,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())
