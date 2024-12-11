@@ -21,9 +21,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global variables to manage quiz state
-quiz_data = {}
-user_scores = {}
+# Trạng thái toàn cục cho người dùng
+user_states = {}
 
 # Hàm tải câu hỏi từ Google Sheets
 def fetch_questions_from_csv():
@@ -40,18 +39,11 @@ def fetch_questions_from_csv():
         logger.error(f"Lỗi khi tải câu hỏi: {e}")
         return []
 
-# Hàm xử lý khi người dùng mở bot
-def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    update.message.reply_text(
-        text="🔥 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu.",
-        parse_mode=ParseMode.HTML,
-    )
-
 # Hàm xử lý khi người dùng nhập /start
 def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
-    # Initialize user state
-    user_scores[chat_id] = {"score": 0, "current_question": 0}
+    # Đặt trạng thái ban đầu cho người dùng
+    user_states[chat_id] = {"score": 0, "question_index": 0, "questions": fetch_questions_from_csv()}
     welcome_message = (
         "🎉 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>\n\n"
         "📋 <b>Luật chơi:</b>\n"
@@ -67,66 +59,18 @@ def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     update.message.reply_text(text=welcome_message, parse_mode=ParseMode.HTML)
 
 # Hàm xử lý khi người dùng nhập /quiz
-async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
-    user_state = user_scores.get(chat_id, {"score": 0, "current_question": 0})
-    
-    # Load quiz questions
-    if "questions" not in quiz_data:
-        quiz_data["questions"] = fetch_questions_from_csv()
+    user_state = user_states.get(chat_id)
 
-    questions = quiz_data["questions"]
-    if not questions:
-        await update.message.reply_text("❌ Lỗi: Không thể tải câu hỏi. Vui lòng thử lại sau.")
+    if not user_state or not user_state["questions"]:
+        update.message.reply_text("❌ Không có câu hỏi. Vui lòng thử lại sau.")
         return
 
-    if user_state["current_question"] >= 20:
-        await update.message.reply_text(
-            "🏁 Bạn đã hoàn thành tất cả các câu hỏi! Nhấn /start để chơi lại."
-        )
-        return
-
-    # Get next question
-    question_data = random.choice(questions)
-    question_text = question_data["Question"]
-    options = [
-        InlineKeyboardButton(question_data["Option 1"], callback_data="1"),
-        InlineKeyboardButton(question_data["Option 2"], callback_data="2"),
-        InlineKeyboardButton(question_data["Option 3"], callback_data="3"),
-    ]
-    correct_answer = str(question_data["Answer"])
-
-    # Save correct answer to state
-    user_state["current_question"] += 1
-    user_scores[chat_id] = user_state
-    context.user_data["correct_answer"] = correct_answer
-
-    # Send question
-    reply_markup = InlineKeyboardMarkup([options])
-    await update.message.reply_text(
-        text=f"💬 Câu {user_state['current_question']}: {question_text}",
-        reply_markup=reply_markup,
-    )
-
-# Hàm xử lý trả lời câu hỏi
-async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    chat_id = query.message.chat.id
-    user_state = user_scores.get(chat_id)
-
-    if not user_state:
-        await query.answer("❌ Không có bài quiz đang hoạt động. Nhấn /quiz để bắt đầu!")
-        return
-
-    correct_answer = context.user_data.get("correct_answer")
-    if query.data == correct_answer:
-        user_state["score"] += 1
-        await query.answer("👍 Chính xác!", show_alert=True)
-    else:
-        await query.answer("😥 Sai rồi!", show_alert=True)
-
-    # Check if quiz is over
-    if user_state["current_question"] >= 20:
+    # Lấy câu hỏi tiếp theo
+    question_index = user_state["question_index"]
+    if question_index >= 20:
+        # Kết thúc quiz
         total_score = user_state["score"]
         result_message = (
             f"🏆 Kết thúc game! Tổng điểm của bạn: {total_score}/20\n\n"
@@ -135,10 +79,47 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"{'🥈 Nhà đầu tư tiềm năng!' if 10 <= total_score <= 15 else ''}"
             f"{'🥉 Cần học hỏi thêm!' if total_score < 10 else ''}"
         )
-        await query.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
+        update.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
+        return
+
+    question_data = user_state["questions"][question_index]
+    question = question_data["Question"]
+    options = [
+        InlineKeyboardButton(question_data["Option 1"], callback_data="1"),
+        InlineKeyboardButton(question_data["Option 2"], callback_data="2"),
+        InlineKeyboardButton(question_data["Option 3"], callback_data="3"),
+    ]
+    correct_answer = question_data["Answer"]
+
+    # Lưu câu trả lời đúng
+    context.user_data["correct_answer"] = correct_answer
+    user_state["question_index"] += 1
+
+    reply_markup = InlineKeyboardMarkup([options])
+    update.message.reply_text(
+        text=f"💬 Câu {question_index + 1}: {question}",
+        reply_markup=reply_markup,
+    )
+
+# Hàm xử lý trả lời câu hỏi
+def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    chat_id = query.message.chat_id
+    user_state = user_states.get(chat_id)
+
+    if not user_state:
+        query.answer("❌ Không có bài quiz đang hoạt động.")
+        return
+
+    correct_answer = context.user_data.get("correct_answer")
+    if query.data == correct_answer:
+        user_state["score"] += 1
+        query.answer("👍 Chính xác!")
     else:
-        # Load next question
-        await quiz(update, context)
+        query.answer(f"😥 Sai rồi! Đáp án đúng: {correct_answer}")
+
+    # Hiển thị câu hỏi tiếp theo
+    quiz(query.message, context)
 
 # Hàm chính để chạy bot
 def run_bot():
@@ -149,7 +130,6 @@ def run_bot():
     application.add_handler(CommandHandler("quiz", quiz))
     application.add_handler(CallbackQueryHandler(handle_answer))
 
-    # Chạy bot
     logger.info("Bot đang chạy...")
     application.run_polling()
 
