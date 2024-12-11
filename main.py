@@ -1,12 +1,17 @@
 import logging
+import requests
 import csv
+import random
 from telegram import Update, ParseMode, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
-import random
 import asyncio
 
 # Token bot Telegram
 TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"
+
+# URL Google Sheets CSV
+SHEET_ID = "1QMKiohAaO5QtHoQwBX5efTXCI_Q791A4GnoCe9nMV2w"
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&sheet=TTCK"
 
 # Cấu hình logging
 logging.basicConfig(
@@ -15,13 +20,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Đọc dữ liệu từ file CSV
-def load_questions_from_csv():
+# Hàm tải câu hỏi từ Google Sheets
+def fetch_questions_from_csv():
+    response = requests.get(SHEET_URL)
+    response.raise_for_status()  # Kiểm tra nếu lỗi xảy ra
+
     questions = []
-    with open("questions.csv", encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            questions.append(row)
+    decoded_content = response.content.decode('utf-8')
+    csv_reader = csv.DictReader(decoded_content.splitlines())
+
+    for row in csv_reader:
+        questions.append(row)
+
     return questions
 
 # Hàm xử lý khi người dùng mở bot
@@ -47,9 +57,9 @@ def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     update.message.reply_text(text=welcome_message, parse_mode=ParseMode.HTML)
 
-# Hàm xử lý khi người dùng nhập /quiz (phần câu hỏi)
+# Hàm xử lý khi người dùng nhập /quiz
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    questions = load_questions_from_csv()
+    questions = fetch_questions_from_csv()
 
     total_score = 0
     for i in range(1, 21):  # Lặp qua 20 câu hỏi
@@ -71,7 +81,7 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Chờ phản hồi hoặc hết 60 giây
         try:
-            query: Update = await context.bot.wait_for(
+            query = await context.bot.wait_for(
                 "callback_query",
                 timeout=60,
                 check=lambda q: q.message.message_id == message.message_id
