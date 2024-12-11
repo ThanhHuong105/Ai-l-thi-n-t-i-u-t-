@@ -127,6 +127,16 @@ def run_bot():
     # Chạy bot
     logger.info("Bot đang chạy...")
     application.run_polling()
+import requests
 
+def check_telegram_connection():
+    url = f"https://api.telegram.org/bot{TOKEN}/getMe"
+    response = requests.get(url)
+    if response.status_code == 200:
+        print("✅ Kết nối đến Telegram thành công.")
+    else:
+        print(f"❌ Kết nối đến Telegram thất bại. Lỗi: {response.status_code} {response.text}")
+
+check_telegram_connection()
 if __name__ == "__main__":
     run_bot()
