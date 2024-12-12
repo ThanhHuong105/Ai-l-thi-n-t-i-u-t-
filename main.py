@@ -93,8 +93,14 @@ def handle_answer(update: Update, context: CallbackContext):
 def timeout_handler(context: CallbackContext):
     chat_id = context.job.context
     bot = context.bot
-    bot.send_message(chat_id=chat_id, text="⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là 0 điểm.")
-    ask_question(bot.get_chat(chat_id), context)
+
+    # Kiểm tra trạng thái của câu hỏi hiện tại
+    user_data = context.dispatcher.user_data[chat_id]
+    if user_data["current_question"] <= len(user_data["questions"]):
+        bot.send_message(chat_id=chat_id, text="⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {}/20.".format(user_data["score"]))
+        
+        # Gọi câu hỏi tiếp theo
+        ask_question(bot.get_chat(chat_id), context)
 
 # Finish Quiz
 def finish_quiz(update: Update, context: CallbackContext):
