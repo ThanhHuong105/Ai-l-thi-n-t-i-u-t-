@@ -41,7 +41,7 @@ def start(update: Update, context: CallbackContext):
         "- Có 20 câu hỏi.\n"
         "- Mỗi câu trả lời đúng được 1 điểm.\n"
         "- Nếu không trả lời trong 60 giây, bạn sẽ bị tính 0 điểm.\n\n"
-        "🔥 *Bạn đã sẵn sàng?* Nhấn /quiz để bắt đầu trả lời các câu hỏi!"
+        "🔥 Bạn đã sẵn sàng? Nhấn /quiz để bắt đầu trả lời các câu hỏi!"
     )
     return QUIZ
 
@@ -62,7 +62,7 @@ def ask_question(update: Update, context: CallbackContext):
 
         reply_markup = ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True)
         update.message.reply_text(
-            f"❓ *Câu {current + 1}:* {question['Question']}\n\n"
+            f"💬 Câu {current + 1}: {question['Question']}\n\n"
             f"1️⃣ {options[0]}\n"
             f"2️⃣ {options[1]}\n"
             f"3️⃣ {options[2]}",
@@ -110,7 +110,7 @@ def ask_question_via_context(context: CallbackContext, chat_id):
 
         context.bot.send_message(
             chat_id=chat_id,
-            text=f"❓ *Câu {current + 1}:* {question['Question']}\n\n"
+            text=f"💬 Câu {current + 1}: {question['Question']}\n\n"
                  f"1️⃣ {options[0]}\n"
                  f"2️⃣ {options[1]}\n"
                  f"3️⃣ {options[2]}",
@@ -139,10 +139,10 @@ def handle_answer(update: Update, context: CallbackContext):
 
     if user_answer == correct_answer:
         user_data["score"] += 1
-        update.message.reply_text(f"✅ Chính xác! Tổng điểm của bạn hiện tại là {user_data['score']}/20.")
+        update.message.reply_text(f"👍 Chính xác! Tổng điểm của bạn hiện tại là {user_data['score']}/20.")
     else:
         update.message.reply_text(
-            f"❌ Sai rồi! Đáp án đúng là {correct_answer}. "
+            f"😥 Sai rồi! Đáp án đúng là {correct_answer}. "
             f"Tổng điểm hiện tại của bạn là {user_data['score']}/20."
         )
 
