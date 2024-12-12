@@ -60,6 +60,7 @@ def timeout_handler(context: CallbackContext):
             chat_id=chat_id,
             text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20."
         )
+        # Gọi câu hỏi tiếp theo
         ask_next_question(context, chat_id)
     else:
         finish_quiz(context, chat_id)
@@ -84,7 +85,7 @@ def ask_next_question(context: CallbackContext, chat_id):
             reply_markup=ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True),
         )
 
-        # Đặt timeout cho câu hỏi
+        # Đặt timeout cho câu hỏi hiện tại
         job = context.job_queue.run_once(timeout_handler, 60, context=chat_id)
         user_data["timeout_job"] = job
     else:
