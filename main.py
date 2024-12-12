@@ -78,59 +78,64 @@ def ask_question(update: Update, context: CallbackContext):
         return ConversationHandler.END
 
 # Timeout Handler
-def timeout_handler(context: CallbackContext):
-    chat_id = context.job.context
-    bot = context.bot
+def handle_answer(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    current = user_data["current_question"] - 1
+    questions = user_data["questions"]
 
-    # Lấy thông tin người dùng từ user_data
-    user_data = context.dispatcher.user_data.get(chat_id, {})
-    current = user_data.get("current_question", 0)
-    questions = user_data.get("questions", [])
+    # Kiểm tra nếu người dùng trả lời sau khi hết thời gian
+    if "timeout_job" in user_data and user_data["timeout_job"] is None:
+        update.message.reply_text("⏳ Bạn đã hết thời gian trả lời câu hỏi này. Chuyển sang câu hỏi tiếp theo!")
+        return WAIT_ANSWER
 
-    if current < len(questions):
-        bot.send_message(
-            chat_id=chat_id,
-            text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20."
-        )
-        # Chuyển sang câu hỏi tiếp theo
-        ask_question_via_context(context, chat_id)
+    try:
+        user_answer = int(update.message.text)
+    except ValueError:
+        update.message.reply_text("⚠️ Vui lòng chọn 1, 2 hoặc 3.")
+        return WAIT_ANSWER
+
+    correct_answer = int(questions[current]["Answer"])
+
+    if user_answer == correct_answer:
+        user_data["score"] += 1
+        update.message.reply_text(f"👍Chính xác! Tổng điểm của bạn hiện tại là {user_data['score']}/20.")
     else:
-        finish_quiz_via_context(context, chat_id)
+        update.message.reply_text(
+            f"😥 Sai rồi! Đáp án đúng là {correct_answer}. "
+            f"Tổng điểm hiện tại của bạn là {user_data['score']}/20."
+        )
+
+    ask_question(update, context)
 
 # Ask Question via Context
-def ask_question(update: Update, context: CallbackContext):
-    user_data = context.user_data
-    current = user_data["current_question"]
-    questions = user_data["questions"]
+def ask_question_via_context(context: CallbackContext, chat_id):
+    user_data = context.dispatcher.user_data[chat_id]
+    current = user_data.get("current_question", 0)
+    questions = user_data.get("questions", [])
 
     # Hủy job timeout cũ nếu tồn tại
     if "timeout_job" in user_data and user_data["timeout_job"] is not None:
         user_data["timeout_job"].schedule_removal()
 
-    # Kiểm tra nếu đã đến câu hỏi cuối cùng
     if current < len(questions):
         question = questions[current]
         options = [question["Option 1"], question["Option 2"], question["Option 3"]]
         user_data["current_question"] += 1
 
-        reply_markup = ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True)
-        update.message.reply_text(
-            f"💬 Câu {current + 1}: {question['Question']}\n\n"
-            f"1️⃣ {options[0]}\n"
-            f"2️⃣ {options[1]}\n"
-            f"3️⃣ {options[2]}",
-            reply_markup=reply_markup,
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=f"💬 *Câu {current + 1}:* {question['Question']}\n\n"
+                 f"1️⃣ {options[0]}\n"
+                 f"2️⃣ {options[1]}\n"
+                 f"3️⃣ {options[2]}",
+            reply_markup=ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True),
         )
 
         # Đặt timeout mới
-        timeout_job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
+        timeout_job = context.job_queue.run_once(timeout_handler, 60, context=chat_id)
         user_data["timeout_job"] = timeout_job
-        return WAIT_ANSWER
     else:
-        # Gọi tổng kết nếu đây là câu hỏi cuối cùng
-        finish_quiz(update, context)
-        return ConversationHandler.END
-
+        finish_quiz_via_context(context, chat_id)
 # Handle Answer
 def handle_answer(update: Update, context: CallbackContext):
     user_data = context.user_data
