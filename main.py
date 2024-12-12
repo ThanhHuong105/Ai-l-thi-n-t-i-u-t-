@@ -78,10 +78,28 @@ def ask_question(update: Update, context: CallbackContext):
         return ConversationHandler.END
 
 # Timeout Handler
-def handle_answer(update: Update, context: CallbackContext):
-    user_data = context.user_data
-    current = user_data["current_question"] - 1
-    questions = user_data["questions"]
+def timeout_handler(context: CallbackContext):
+    chat_id = context.job.context
+    bot = context.bot
+
+    # Lấy thông tin người dùng từ user_data
+    user_data = context.dispatcher.user_data.get(chat_id, {})
+    current = user_data.get("current_question", 0)
+    questions = user_data.get("questions", [])
+
+    # Nếu còn câu hỏi, thông báo hết thời gian và chuyển sang câu tiếp theo
+    if current < len(questions):
+        bot.send_message(
+            chat_id=chat_id,
+            text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20."
+        )
+        # Vô hiệu hóa khả năng trả lời cho câu hỏi này
+        user_data["timeout_job"] = None
+        # Chuyển sang câu hỏi tiếp theo
+        ask_question_via_context(context, chat_id)
+    else:
+        # Kết thúc quiz nếu đây là câu cuối
+        finish_quiz_via_context(context, chat_id)
 
     # Kiểm tra nếu người dùng trả lời sau khi hết thời gian
     if "timeout_job" in user_data and user_data["timeout_job"] is None:
