@@ -1,11 +1,10 @@
-
 import logging
 import requests
 import csv
 import random
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 
 # Token bot Telegram
@@ -47,27 +46,15 @@ def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Hàm xử lý khi người dùng nhập /start
 def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     welcome_message = (
-        "🎉 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>
-
-"
-        "📋 <b>Luật chơi:</b>
-"
-        "- Có 20 câu hỏi với tổng số điểm tối đa là 20.
-"
-        "- Mỗi câu trả lời đúng được 1 điểm.
-"
-        "- Nếu không trả lời trong 60 giây, bạn sẽ bị tính 0 điểm cho câu đó.
-
-"
-        "✨ <b>Mục tiêu của bạn:</b>
-"
-        "- Trên 15 điểm: Nhà đầu tư thiên tài.
-"
-        "- Từ 10 đến 15 điểm: Nhà đầu tư tiềm năng.
-"
-        "- Dưới 10 điểm: Cần học hỏi thêm!
-
-"
+        "🎉 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>\n\n"
+        "📋 <b>Luật chơi:</b>\n"
+        "- Có 20 câu hỏi với tổng số điểm tối đa là 20.\n"
+        "- Mỗi câu trả lời đúng được 1 điểm.\n"
+        "- Nếu không trả lời trong 60 giây, bạn sẽ bị tính 0 điểm cho câu đó.\n\n"
+        "✨ <b>Mục tiêu của bạn:</b>\n"
+        "- Trên 15 điểm: Nhà đầu tư thiên tài.\n"
+        "- Từ 10 đến 15 điểm: Nhà đầu tư tiềm năng.\n"
+        "- Dưới 10 điểm: Cần học hỏi thêm!\n\n"
         "👉 Nhấn /quiz để bắt đầu!"
     )
     update.message.reply_text(text=welcome_message, parse_mode=ParseMode.HTML)
@@ -112,9 +99,6 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await query.answer("👍 Chính xác!", show_alert=True)
             else:
                 await query.answer("😥 Sai rồi!", show_alert=True)
-                await update.message.reply_text(
-                    text=f"Đáp án đúng là: {question_data[f'Option {correct_answer}']}"
-                )
 
         except asyncio.TimeoutError:
             await update.message.reply_text("⏳ Hết thời gian cho câu này!")
@@ -124,16 +108,22 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Kết thúc game
     result_message = (
-        f"🏆 Kết thúc game! Tổng điểm của bạn: {total_score}/20
-
-"
-        "✨ <b>Kết quả:</b>
-"
+        f"🏆 Kết thúc game! Tổng điểm của bạn: {total_score}/20\n\n"
+        "✨ <b>Kết quả:</b>\n"
         f"{'🥇 Nhà đầu tư thiên tài!' if total_score > 15 else ''}"
         f"{'🥈 Nhà đầu tư tiềm năng!' if 10 <= total_score <= 15 else ''}"
         f"{'🥉 Cần học hỏi thêm!' if total_score < 10 else ''}"
     )
     await update.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
+
+# Hàm kiểm tra kết nối Telegram
+def check_telegram_connection():
+    url = f"https://api.telegram.org/bot{TOKEN}/getMe"
+    response = requests.get(url)
+    if response.status_code == 200:
+        logger.info("✅ Kết nối đến Telegram thành công.")
+    else:
+        logger.error(f"❌ Kết nối đến Telegram thất bại. {response.status_code} {response.text}")
 
 # Hàm chính để chạy bot
 def run_bot():
@@ -149,4 +139,5 @@ def run_bot():
     application.run_polling()
 
 if __name__ == "__main__":
+    check_telegram_connection()
     run_bot()
