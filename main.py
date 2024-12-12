@@ -106,8 +106,8 @@ def timeout_handler(context: CallbackContext):
             text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20.\n"
                  f"Chuyển sang câu hỏi tiếp theo..."
         )
-        # Tự động gọi câu hỏi tiếp theo
-        ask_question(bot.get_chat(chat_id), context)
+        # Gọi câu hỏi tiếp theo
+        ask_question(context.bot, context, chat_id)
     else:
         # Kết thúc quiz nếu không còn câu hỏi
         finish_quiz(bot.get_chat(chat_id), context)
