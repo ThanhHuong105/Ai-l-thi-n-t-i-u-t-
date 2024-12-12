@@ -57,7 +57,7 @@ def ask_question(update: Update, context: CallbackContext):
 
         reply_markup = ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True)
         update.message.reply_text(
-            f"Câu {current + 1}: {question['Question']}\n"
+            f"💬Câu {current + 1}: {question['Question']}\n"
             f"1. {options[0]}\n"
             f"2. {options[1]}\n"
             f"3. {options[2]}",
@@ -95,56 +95,35 @@ def timeout_handler(context: CallbackContext):
     bot = context.bot
 
     # Lấy thông tin người dùng từ user_data
-    user_data = context.dispatcher.user_data.get(chat_id, {})
-    current = user_data.get("current_question", 0)
-    questions = user_data.get("questions", [])
+    user_data = context.dispatcher.user_data[chat_id]
+    current = user_data["current_question"]
 
-    # Kiểm tra nếu còn câu hỏi
-    if current < len(questions):
+    # Kiểm tra nếu còn câu hỏi để chuyển sang
+    if current < len(user_data["questions"]):
         bot.send_message(
             chat_id=chat_id,
             text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20.\n"
-                 f"Chuyển sang câu hỏi tiếp theo..."
+                 f"Bấm /quiz để nhận câu hỏi tiếp theo."
         )
-        # Chuyển sang câu hỏi tiếp theo hoặc kết thúc
-ask_next_question(context, chat_id)
-    
+        # Tự động chuyển sang trạng thái đợi câu hỏi tiếp theo
+        user_data["waiting_next_question"] = True  # Đánh dấu trạng thái chờ câu hỏi tiếp theo
     else:
         # Kết thúc quiz nếu không còn câu hỏi
-        finish_quiz_via_context(context, chat_id)
+        finish_quiz(bot.get_chat(chat_id), context)
         
-# Ask Question via Context
-def ask_question_via_context(context: CallbackContext, chat_id):
-    user_data = context.dispatcher.user_data[chat_id]
-    current = user_data.get("current_question", 0)
-    questions = user_data.get("questions", [])
+# Ask Question
+def ask_question(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    current = user_data["current_question"]
+    questions = user_data["questions"]
+
+    # Kiểm tra nếu người dùng đang chờ câu hỏi tiếp theo
+    if "waiting_next_question" in user_data and user_data["waiting_next_question"]:
+        user_data["waiting_next_question"] = False  # Xóa trạng thái chờ
 
     # Hủy mọi timeout cũ trước khi đặt timeout mới
     if "timeout_job" in user_data and user_data["timeout_job"]:
         user_data["timeout_job"].schedule_removal()
-
-    if current < len(questions):
-        question = questions[current]
-        options = [question["Option 1"], question["Option 2"], question["Option 3"]]
-        user_data["current_question"] += 1
-
-        context.bot.send_message(
-            chat_id=chat_id,
-            text=f"Câu {current + 1}: {question['Question']}\n"
-                 f"1. {options[0]}\n"
-                 f"2. {options[1]}\n"
-                 f"3. {options[2]}",
-            reply_markup=ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True),
-        )
-
-        # Đặt timeout cho câu hỏi hiện tại
-        job = context.job_queue.run_once(timeout_handler, 60, context=chat_id)
-        user_data["timeout_job"] = job  # Lưu timeout job vào user_data
-    else:
-        # Nếu trả lời xong câu hỏi, chuyển sang câu tiếp theo
-ask_next_question(context, update.message.chat_id)
-        # Gọi tổng kết nếu hết câu hỏi
-        finish_quiz_via_context(context, chat_id)
 
     # Hiển thị câu hỏi tiếp theo nếu còn
     if current < len(questions):
@@ -169,10 +148,11 @@ ask_next_question(context, update.message.chat_id)
         # Nếu không còn câu hỏi, kết thúc quiz
         finish_quiz(update, context)
         return ConversationHandler.END
-# Finish Quiz via Context
-def finish_quiz_via_context(context: CallbackContext, chat_id):
-    user_data = context.dispatcher.user_data[chat_id]
-    score = user_data.get("score", 0)
+
+# Finish Quiz
+def finish_quiz(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    score = user_data["score"]
 
     if score >= 15:
         result = "🥇 Nhà đầu tư thiên tài!"
@@ -181,10 +161,9 @@ def finish_quiz_via_context(context: CallbackContext, chat_id):
     else:
         result = "🥉 Thế giới rất rộng lớn và còn nhiều thứ phải học thêm."
 
-    context.bot.send_message(
-        chat_id=chat_id,
-        text=f"🎉 Chúc mừng bạn đã hoàn thành cuộc thi 'Ai Là Thiên Tài Đầu Tư’'!\n"
-             f"🏆 Tổng điểm của bạn: {score}/20.\n{result}"
+    update.message.reply_text(
+        f"Chúc mừng bạn đã hoàn thành cuộc thi 'Ai Là Thiên Tài Đầu Tư’'.\n"
+        f"🏆 Tổng điểm của bạn: {score}/20.\n{result}"
     )
 
 # Main Function
