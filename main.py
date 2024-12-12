@@ -98,28 +98,38 @@ def timeout_handler(context: CallbackContext):
     user_data = context.dispatcher.user_data[chat_id]
     current = user_data["current_question"]
 
-    # Đảm bảo chỉ gửi thông báo hết giờ một lần
-    if current <= len(user_data["questions"]):
+    # Kiểm tra nếu còn câu hỏi để chuyển sang
+    if current < len(user_data["questions"]):
         bot.send_message(
             chat_id=chat_id,
             text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20.\n"
                  f"Bấm /quiz để nhận câu hỏi tiếp theo."
-
-        # Gọi câu hỏi tiếp theo
-        ask_question(bot.get_chat(chat_id), context)
-# Ask Question (cập nhật để chuyển sang câu hỏi tiếp theo khi người dùng bấm /quiz)
+        )
+        # Tự động chuyển sang trạng thái đợi câu hỏi tiếp theo
+        user_data["waiting_next_question"] = True  # Đánh dấu trạng thái chờ câu hỏi tiếp theo
+    else:
+        # Kết thúc quiz nếu không còn câu hỏi
+        finish_quiz(bot.get_chat(chat_id), context)
+        
+# Ask Question
 def ask_question(update: Update, context: CallbackContext):
-    current = context.user_data["current_question"]
-    questions = context.user_data["questions"]
+    user_data = context.user_data
+    current = user_data["current_question"]
+    questions = user_data["questions"]
+
+    # Kiểm tra nếu người dùng đang chờ câu hỏi tiếp theo
+    if "waiting_next_question" in user_data and user_data["waiting_next_question"]:
+        user_data["waiting_next_question"] = False  # Xóa trạng thái chờ
 
     # Hủy mọi timeout cũ trước khi đặt timeout mới
-    if "timeout_job" in context.user_data and context.user_data["timeout_job"]:
-        context.user_data["timeout_job"].schedule_removal()
+    if "timeout_job" in user_data and user_data["timeout_job"]:
+        user_data["timeout_job"].schedule_removal()
 
+    # Hiển thị câu hỏi tiếp theo nếu còn
     if current < len(questions):
         question = questions[current]
         options = [question["Option 1"], question["Option 2"], question["Option 3"]]
-        context.user_data["current_question"] += 1
+        user_data["current_question"] += 1
 
         reply_markup = ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True)
         update.message.reply_text(
@@ -132,21 +142,25 @@ def ask_question(update: Update, context: CallbackContext):
 
         # Đặt timeout cho câu hỏi hiện tại
         job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
-        context.user_data["timeout_job"] = job  # Lưu timeout job vào user_data
+        user_data["timeout_job"] = job  # Lưu timeout job vào user_data
         return WAIT_ANSWER
     else:
+        # Nếu không còn câu hỏi, kết thúc quiz
         finish_quiz(update, context)
         return ConversationHandler.END
 
 # Finish Quiz
 def finish_quiz(update: Update, context: CallbackContext):
-    score = context.user_data["score"]
+    user_data = context.user_data
+    score = user_data["score"]
+
     if score >= 15:
         result = "🥇 Nhà đầu tư thiên tài!"
     elif 12 <= score < 15:
         result = "🥈 Nhà đầu tư tiềm năng!"
     else:
         result = "🥉 Thế giới rất rộng lớn và còn nhiều thứ phải học thêm."
+
     update.message.reply_text(
         f"Chúc mừng bạn đã hoàn thành cuộc thi 'Ai Là Thiên Tài Đầu Tư’'.\n"
         f"🏆 Tổng điểm của bạn: {score}/20.\n{result}"
