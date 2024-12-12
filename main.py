@@ -56,65 +56,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 from telegram.ext import CallbackQueryHandler
 
-# Hàm xử lý phản hồi của người dùng khi trả lời câu hỏi
+# Hàm xử lý khi người dùng trả lời câu hỏi
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()  # Trả lời tạm thời để loại bỏ thông báo "Loading..."
 
     # Lấy dữ liệu từ callback_data
     user_answer = query.data
-    correct_answer = context.chat_data.get("correct_answer")
+    correct_answer = context.chat_data.get("correct_answer", "")
 
     # Kiểm tra câu trả lời đúng hay sai
     if user_answer == correct_answer:
-        context.chat_data["total_score"] += 1
+        context.chat_data["total_score"] = context.chat_data.get("total_score", 0) + 1
         await query.edit_message_text("👍 Chính xác!")
     else:
         await query.edit_message_text("😥 Sai rồi!")
 
-    # Tiếp tục xử lý câu hỏi tiếp theo (nếu có)
-    current_question = context.chat_data.get("current_question", 0) + 1
-    context.chat_data["current_question"] = current_question
-
-    if current_question <= 20:
-        await send_question(update, context)
-    else:
-        # Kết thúc game
-        total_score = context.chat_data["total_score"]
-        result_message = (
-            f"🏆 Kết thúc game! Tổng điểm của bạn: {total_score}/20\n\n"
-            "✨ <b>Kết quả:</b>\n"
-            f"{'🥇 Nhà đầu tư thiên tài!' if total_score > 15 else ''}"
-            f"{'🥈 Nhà đầu tư tiềm năng!' if 10 <= total_score <= 15 else ''}"
-            f"{'🥉 Cần học hỏi thêm!' if total_score < 10 else ''}"
-        )
-        await query.edit_message_text(text=result_message, parse_mode=ParseMode.HTML)
-
-# Hàm gửi câu hỏi
-async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    questions = context.chat_data.get("questions")
-    if not questions:
-        return
-
-    current_question = context.chat_data.get("current_question", 0)
-    question_data = questions[current_question - 1]
-    question = question_data["Question"]
-    options = [
-        InlineKeyboardButton(question_data["Option 1"], callback_data="1"),
-        InlineKeyboardButton(question_data["Option 2"], callback_data="2"),
-        InlineKeyboardButton(question_data["Option 3"], callback_data="3"),
-    ]
-
-    # Lưu đáp án đúng vào chat_data
-    context.chat_data["correct_answer"] = str(question_data["Answer"])
-
-    # Gửi câu hỏi
-    reply_markup = InlineKeyboardMarkup.from_column(options)
-    await update.effective_chat.send_message(
-        text=f"💬 Câu {current_question}: {question}", reply_markup=reply_markup
-    )
-
-# Sửa hàm quiz để gọi send_question
+# Cập nhật hàm quiz để lưu câu trả lời đúng vào chat_data
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     questions = fetch_questions_from_csv()
 
@@ -122,11 +80,36 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("❌ Lỗi: Không thể tải câu hỏi. Vui lòng thử lại sau.")
         return
 
-    context.chat_data["questions"] = random.sample(questions, 20)
-    context.chat_data["total_score"] = 0
-    context.chat_data["current_question"] = 1
+    total_score = 0
+    for i in range(1, 21):  # Lặp qua 20 câu hỏi
+        question_data = random.choice(questions)
+        question = question_data["Question"]
+        options = [
+            InlineKeyboardButton(question_data["Option 1"], callback_data="1"),
+            InlineKeyboardButton(question_data["Option 2"], callback_data="2"),
+            InlineKeyboardButton(question_data["Option 3"], callback_data="3"),
+        ]
+        correct_answer = str(question_data["Answer"])
 
-    await send_question(update, context)
+        # Lưu câu trả lời đúng vào chat_data
+        context.chat_data["correct_answer"] = correct_answer
+
+        # Gửi câu hỏi
+        reply_markup = InlineKeyboardMarkup.from_column(options)
+        await update.message.reply_text(
+            text=f"💬 Câu {i}: {question}", reply_markup=reply_markup
+        )
+
+    # Kết thúc game
+    total_score = context.chat_data.get("total_score", 0)
+    result_message = (
+        f"🏆 Kết thúc game! Tổng điểm của bạn: {total_score}/20\n\n"
+        "✨ <b>Kết quả:</b>\n"
+        f"{'🥇 Nhà đầu tư thiên tài!' if total_score > 15 else ''}"
+        f"{'🥈 Nhà đầu tư tiềm năng!' if 10 <= total_score <= 15 else ''}"
+        f"{'🥉 Cần học hỏi thêm!' if total_score < 10 else ''}"
+    )
+    await update.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
 
 # Thêm CallbackQueryHandler
 def run_bot():
@@ -135,7 +118,7 @@ def run_bot():
     # Thêm các handler cho các lệnh
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("quiz", quiz))
-    application.add_handler(CallbackQueryHandler(handle_answer))
+    application.add_handler(CallbackQueryHandler(handle_answer))  # Bắt sự kiện trả lời
 
     # Chạy bot
     logger.info("Bot đang chạy...")
