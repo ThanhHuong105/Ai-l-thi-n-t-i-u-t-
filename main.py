@@ -51,6 +51,10 @@ def ask_question(update: Update, context: CallbackContext):
     current = user_data["current_question"]
     questions = user_data["questions"]
 
+    # Hủy job timeout cũ nếu tồn tại
+    if "timeout_job" in user_data and user_data["timeout_job"] is not None:
+        user_data["timeout_job"].schedule_removal()
+
     if current < len(questions):
         question = questions[current]
         options = [question["Option 1"], question["Option 2"], question["Option 3"]]
@@ -65,9 +69,9 @@ def ask_question(update: Update, context: CallbackContext):
             reply_markup=reply_markup,
         )
 
-        # Đặt timeout cho câu hỏi
-        job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
-        user_data["timeout_job"] = job
+        # Đặt timeout mới
+        timeout_job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
+        user_data["timeout_job"] = timeout_job
         return WAIT_ANSWER
     else:
         finish_quiz(update, context)
@@ -88,7 +92,7 @@ def timeout_handler(context: CallbackContext):
             chat_id=chat_id,
             text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20."
         )
-        # Gọi câu hỏi tiếp theo
+        # Chuyển sang câu hỏi tiếp theo
         ask_question_via_context(context, chat_id)
     else:
         finish_quiz_via_context(context, chat_id)
@@ -107,15 +111,15 @@ def ask_question_via_context(context: CallbackContext, chat_id):
         context.bot.send_message(
             chat_id=chat_id,
             text=f"❓ *Câu {current + 1}:* {question['Question']}\n\n"
-            f"1️⃣ {options[0]}\n"
-            f"2️⃣ {options[1]}\n"
-            f"3️⃣ {options[2]}",
+                 f"1️⃣ {options[0]}\n"
+                 f"2️⃣ {options[1]}\n"
+                 f"3️⃣ {options[2]}",
             reply_markup=ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True),
         )
 
-        # Đặt timeout cho câu hỏi
-        job = context.job_queue.run_once(timeout_handler, 60, context=chat_id)
-        user_data["timeout_job"] = job
+        # Đặt timeout mới
+        timeout_job = context.job_queue.run_once(timeout_handler, 60, context=chat_id)
+        user_data["timeout_job"] = timeout_job
     else:
         finish_quiz_via_context(context, chat_id)
 
