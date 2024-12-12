@@ -56,23 +56,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 from telegram.ext import CallbackQueryHandler
 
-# Hàm xử lý khi người dùng trả lời câu hỏi
-async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()  # Trả lời tạm thời để loại bỏ thông báo "Loading..."
-
-    # Lấy dữ liệu từ callback_data
-    user_answer = query.data
-    correct_answer = context.chat_data.get("correct_answer", "")
-
-    # Kiểm tra câu trả lời đúng hay sai
-    if user_answer == correct_answer:
-        context.chat_data["total_score"] = context.chat_data.get("total_score", 0) + 1
-        await query.edit_message_text("👍 Chính xác!")
-    else:
-        await query.edit_message_text("😥 Sai rồi!")
-
-# Cập nhật hàm quiz để lưu câu trả lời đúng vào chat_data
+# Cập nhật hàm quiz để xử lý callback query đúng cách
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     questions = fetch_questions_from_csv()
 
@@ -91,17 +75,36 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ]
         correct_answer = str(question_data["Answer"])
 
-        # Lưu câu trả lời đúng vào chat_data
-        context.chat_data["correct_answer"] = correct_answer
-
         # Gửi câu hỏi
         reply_markup = InlineKeyboardMarkup.from_column(options)
-        await update.message.reply_text(
+        message = await update.message.reply_text(
             text=f"💬 Câu {i}: {question}", reply_markup=reply_markup
         )
 
+        # Sử dụng cơ chế CallbackQueryHandler để xử lý
+        def callback_check(user_response):
+            return user_response.data in ["1", "2", "3"]
+
+        try:
+            query = await context.application.wait_for_callback_query(
+                timeout=60, chat_id=update.effective_chat.id, message_id=message.message_id
+            )
+            user_answer = query.data
+
+            # Kiểm tra câu trả lời đúng hay sai
+            if user_answer == correct_answer:
+                total_score += 1
+                await query.answer("👍 Chính xác!", show_alert=True)
+            else:
+                await query.answer("😥 Sai rồi!", show_alert=True)
+
+        except asyncio.TimeoutError:
+            await update.message.reply_text("⏳ Hết thời gian cho câu này!")
+
+        # Thông báo điểm số lũy kế
+        await update.message.reply_text(f"💯 Điểm hiện tại: {total_score}/{i}")
+
     # Kết thúc game
-    total_score = context.chat_data.get("total_score", 0)
     result_message = (
         f"🏆 Kết thúc game! Tổng điểm của bạn: {total_score}/20\n\n"
         "✨ <b>Kết quả:</b>\n"
@@ -110,6 +113,7 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"{'🥉 Cần học hỏi thêm!' if total_score < 10 else ''}"
     )
     await update.message.reply_text(text=result_message, parse_mode=ParseMode.HTML)
+
 
 # Thêm CallbackQueryHandler
 def run_bot():
