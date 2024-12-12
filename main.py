@@ -29,7 +29,8 @@ def load_questions():
 # Start Command
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
-        "🔥 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu."
+        "🔥 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu.\n"
+        "Hoặc nhấn /quiz để bắt đầu trả lời các câu hỏi!"
     )
     return START
 
@@ -78,7 +79,12 @@ def ask_question(update: Update, context: CallbackContext):
 
 # Handle Answer
 def handle_answer(update: Update, context: CallbackContext):
-    user_answer = int(update.message.text)
+    try:
+        user_answer = int(update.message.text)
+    except ValueError:
+        update.message.reply_text("Vui lòng chọn 1, 2 hoặc 3.")
+        return WAIT_ANSWER
+
     current = context.user_data["current_question"] - 1
     question = context.user_data["questions"][current]
     correct_answer = int(question["Answer"])
@@ -94,8 +100,9 @@ def handle_answer(update: Update, context: CallbackContext):
 # Timeout Handler
 def timeout_handler(context: CallbackContext):
     chat_id = context.job.context
-    context.bot.send_message(chat_id=chat_id, text="⏳ Hết thời gian cho câu này! Tổng điểm hiện tại: 0/20.")
-    return ask_question(context.bot.get_chat(chat_id), context)
+    bot = context.bot
+    bot.send_message(chat_id=chat_id, text="⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là 0 điểm.")
+    ask_question(bot.get_chat(chat_id), context)
 
 # Finish Quiz
 def finish_quiz(update: Update, context: CallbackContext):
@@ -113,7 +120,7 @@ def finish_quiz(update: Update, context: CallbackContext):
 
 # Main Function
 def main():
-    updater = Updater(TOKEN)
+    updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
     conv_handler = ConversationHandler(
