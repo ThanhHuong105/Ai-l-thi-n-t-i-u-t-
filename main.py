@@ -98,30 +98,38 @@ def timeout_handler(context: CallbackContext):
         finish_quiz_via_context(context, chat_id)
 
 # Ask Question via Context
-def ask_question_via_context(context: CallbackContext, chat_id):
-    user_data = context.dispatcher.user_data[chat_id]
-    current = user_data.get("current_question", 0)
-    questions = user_data.get("questions", [])
+def ask_question(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    current = user_data["current_question"]
+    questions = user_data["questions"]
 
+    # Hủy job timeout cũ nếu tồn tại
+    if "timeout_job" in user_data and user_data["timeout_job"] is not None:
+        user_data["timeout_job"].schedule_removal()
+
+    # Kiểm tra nếu đã đến câu hỏi cuối cùng
     if current < len(questions):
         question = questions[current]
         options = [question["Option 1"], question["Option 2"], question["Option 3"]]
         user_data["current_question"] += 1
 
-        context.bot.send_message(
-            chat_id=chat_id,
-            text=f"💬 Câu {current + 1}: {question['Question']}\n\n"
-                 f"1️⃣ {options[0]}\n"
-                 f"2️⃣ {options[1]}\n"
-                 f"3️⃣ {options[2]}",
-            reply_markup=ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True),
+        reply_markup = ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True)
+        update.message.reply_text(
+            f"💬 Câu {current + 1}: {question['Question']}\n\n"
+            f"1️⃣ {options[0]}\n"
+            f"2️⃣ {options[1]}\n"
+            f"3️⃣ {options[2]}",
+            reply_markup=reply_markup,
         )
 
         # Đặt timeout mới
-        timeout_job = context.job_queue.run_once(timeout_handler, 60, context=chat_id)
+        timeout_job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
         user_data["timeout_job"] = timeout_job
+        return WAIT_ANSWER
     else:
-        finish_quiz_via_context(context, chat_id)
+        # Gọi tổng kết nếu đây là câu hỏi cuối cùng
+        finish_quiz(update, context)
+        return ConversationHandler.END
 
 # Handle Answer
 def handle_answer(update: Update, context: CallbackContext):
@@ -146,7 +154,12 @@ def handle_answer(update: Update, context: CallbackContext):
             f"Tổng điểm hiện tại của bạn là {user_data['score']}/20."
         )
 
-    ask_question(update, context)
+    # Kiểm tra nếu đây là câu hỏi cuối cùng
+    if current + 1 == len(questions):
+        finish_quiz(update, context)
+        return ConversationHandler.END
+    else:
+        ask_question(update, context)
 
 # Finish Quiz
 def finish_quiz(update: Update, context: CallbackContext):
