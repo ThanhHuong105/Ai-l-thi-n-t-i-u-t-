@@ -94,21 +94,20 @@ def timeout_handler(context: CallbackContext):
     chat_id = context.job.context
     bot = context.bot
 
-    # Đảm bảo không gọi timeout nhiều lần cho cùng một câu hỏi
+    # Lấy thông tin người dùng từ user_data
     user_data = context.dispatcher.user_data[chat_id]
     current = user_data["current_question"]
 
-    # Kiểm tra nếu người dùng vẫn chưa trả lời câu hỏi hiện tại
+    # Đảm bảo chỉ gửi thông báo hết giờ một lần
     if current <= len(user_data["questions"]):
         bot.send_message(
             chat_id=chat_id,
-            text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20."
-        )
+            text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20.\n"
+                 f"Bấm /quiz để nhận câu hỏi tiếp theo."
 
         # Gọi câu hỏi tiếp theo
         ask_question(bot.get_chat(chat_id), context)
-
-# Ask Question (cập nhật để quản lý timeout đúng cách)
+# Ask Question (cập nhật để chuyển sang câu hỏi tiếp theo khi người dùng bấm /quiz)
 def ask_question(update: Update, context: CallbackContext):
     current = context.user_data["current_question"]
     questions = context.user_data["questions"]
