@@ -45,6 +45,34 @@ def start(update: Update, context: CallbackContext):
     )
     return QUIZ
 
+# Ask Next Question
+def ask_question(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    current = user_data["current_question"]
+    questions = user_data["questions"]
+
+    if current < len(questions):
+        question = questions[current]
+        options = [question["Option 1"], question["Option 2"], question["Option 3"]]
+        user_data["current_question"] += 1
+
+        reply_markup = ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True)
+        update.message.reply_text(
+            f"❓ *Câu {current + 1}:* {question['Question']}\n\n"
+            f"1️⃣ {options[0]}\n"
+            f"2️⃣ {options[1]}\n"
+            f"3️⃣ {options[2]}",
+            reply_markup=reply_markup,
+        )
+
+        # Đặt timeout cho câu hỏi
+        job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
+        user_data["timeout_job"] = job
+        return WAIT_ANSWER
+    else:
+        finish_quiz(update, context)
+        return ConversationHandler.END
+
 # Timeout Handler
 def timeout_handler(context: CallbackContext):
     chat_id = context.job.context
@@ -61,12 +89,12 @@ def timeout_handler(context: CallbackContext):
             text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20."
         )
         # Gọi câu hỏi tiếp theo
-        ask_next_question(context, chat_id)
+        ask_question_via_context(context, chat_id)
     else:
-        finish_quiz(context, chat_id)
+        finish_quiz_via_context(context, chat_id)
 
-# Ask Next Question
-def ask_next_question(context: CallbackContext, chat_id):
+# Ask Question via Context
+def ask_question_via_context(context: CallbackContext, chat_id):
     user_data = context.dispatcher.user_data[chat_id]
     current = user_data.get("current_question", 0)
     questions = user_data.get("questions", [])
@@ -79,17 +107,17 @@ def ask_next_question(context: CallbackContext, chat_id):
         context.bot.send_message(
             chat_id=chat_id,
             text=f"❓ *Câu {current + 1}:* {question['Question']}\n\n"
-                 f"1️⃣ {options[0]}\n"
-                 f"2️⃣ {options[1]}\n"
-                 f"3️⃣ {options[2]}",
+            f"1️⃣ {options[0]}\n"
+            f"2️⃣ {options[1]}\n"
+            f"3️⃣ {options[2]}",
             reply_markup=ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True),
         )
 
-        # Đặt timeout cho câu hỏi hiện tại
+        # Đặt timeout cho câu hỏi
         job = context.job_queue.run_once(timeout_handler, 60, context=chat_id)
         user_data["timeout_job"] = job
     else:
-        finish_quiz(context, chat_id)
+        finish_quiz_via_context(context, chat_id)
 
 # Handle Answer
 def handle_answer(update: Update, context: CallbackContext):
@@ -114,11 +142,11 @@ def handle_answer(update: Update, context: CallbackContext):
             f"Tổng điểm hiện tại của bạn là {user_data['score']}/20."
         )
 
-    ask_next_question(context, update.message.chat_id)
+    ask_question(update, context)
 
 # Finish Quiz
-def finish_quiz(context: CallbackContext, chat_id):
-    user_data = context.dispatcher.user_data[chat_id]
+def finish_quiz(update: Update, context: CallbackContext):
+    user_data = context.user_data
     score = user_data.get("score", 0)
 
     if score >= 15:
@@ -128,10 +156,9 @@ def finish_quiz(context: CallbackContext, chat_id):
     else:
         result = "🥉 Thế giới rất rộng lớn và còn nhiều thứ phải học thêm."
 
-    context.bot.send_message(
-        chat_id=chat_id,
-        text=f"🎉 *Chúc mừng bạn đã hoàn thành cuộc thi 'Ai Là Thiên Tài Đầu Tư’'!*\n\n"
-             f"🏆 *Tổng điểm của bạn:* {score}/20.\n{result}"
+    update.message.reply_text(
+        f"🎉 *Chúc mừng bạn đã hoàn thành cuộc thi 'Ai Là Thiên Tài Đầu Tư’'!*\n\n"
+        f"🏆 *Tổng điểm của bạn:* {score}/20.\n{result}"
     )
 
 # Main Function
@@ -142,7 +169,7 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            QUIZ: [CommandHandler("quiz", lambda update, context: ask_next_question(context, update.message.chat_id))],
+            QUIZ: [CommandHandler("quiz", ask_question)],
             WAIT_ANSWER: [MessageHandler(Filters.regex("^[1-3]$"), handle_answer)],
         },
         fallbacks=[CommandHandler("start", start)],
