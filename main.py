@@ -95,18 +95,19 @@ def timeout_handler(context: CallbackContext):
     bot = context.bot
 
     # Lấy thông tin người dùng từ user_data
-    user_data = context.dispatcher.user_data[chat_id]
-    current = user_data["current_question"]
+    user_data = context.dispatcher.user_data.get(chat_id, {})
+    current = user_data.get("current_question", 0)
+    questions = user_data.get("questions", [])
 
-    # Kiểm tra nếu còn câu hỏi để chuyển sang
-    if current < len(user_data["questions"]):
+    # Kiểm tra nếu còn câu hỏi
+    if current < len(questions):
         bot.send_message(
             chat_id=chat_id,
             text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20.\n"
-                 f"Bấm /quiz để nhận câu hỏi tiếp theo."
+                 f"Chuyển sang câu hỏi tiếp theo..."
         )
-        # Tự động chuyển sang trạng thái đợi câu hỏi tiếp theo
-        user_data["waiting_next_question"] = True  # Đánh dấu trạng thái chờ câu hỏi tiếp theo
+        # Tự động gọi câu hỏi tiếp theo
+        ask_question(bot.get_chat(chat_id), context)
     else:
         # Kết thúc quiz nếu không còn câu hỏi
         finish_quiz(bot.get_chat(chat_id), context)
@@ -148,7 +149,6 @@ def ask_question(update: Update, context: CallbackContext):
         # Nếu không còn câu hỏi, kết thúc quiz
         finish_quiz(update, context)
         return ConversationHandler.END
-
 # Finish Quiz
 def finish_quiz(update: Update, context: CallbackContext):
     user_data = context.user_data
