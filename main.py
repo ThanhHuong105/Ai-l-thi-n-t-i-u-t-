@@ -89,14 +89,15 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             user_answer = query.data
 
-            # Kiểm tra câu trả lời đúng hay sai
-            if user_answer == correct_answer:
-                total_score += 1
-                await query.answer("👍 Chính xác!", show_alert=True)
-            else:
-                await query.answer("😥 Sai rồi!", show_alert=True)
-
-        except asyncio.TimeoutError:
+        # Kiểm tra câu trả lời đúng hay sai
+              if user_answer == correct_answer:
+        user_scores[user_id] += 1
+        await query.edit_message_text("👍 Chính xác!")
+    else:
+        await query.edit_message_text(
+            f"😥 Sai rồi! Đáp án đúng là: {question_data[f'Option {correct_answer}']}"
+        )
+ except asyncio.TimeoutError:
             await update.message.reply_text("⏳ Hết thời gian cho câu này!")
 
         # Thông báo điểm số lũy kế
