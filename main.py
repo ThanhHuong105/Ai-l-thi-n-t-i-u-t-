@@ -42,22 +42,18 @@ def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text="🔥 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu.",
         parse_mode=ParseMode.HTML,
     )
-
-# Hàm xử lý khi người dùng nhập /start
-def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Hàm xử lý khi người dùng nhập /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_message = (
         "🎉 <b>Chào mừng bạn đến với Gameshow 'Ai Là Nhà Đầu Tư Tài Ba'!</b>\n\n"
         "📋 <b>Luật chơi:</b>\n"
-        "- Có 20 câu hỏi với tổng số điểm tối đa là 20.\n"
+        "- Có 20 câu hỏi.\n"
         "- Mỗi câu trả lời đúng được 1 điểm.\n"
-        "- Nếu không trả lời trong 60 giây, bạn sẽ bị tính 0 điểm cho câu đó.\n\n"
-        "✨ <b>Mục tiêu của bạn:</b>\n"
-        "- Trên 15 điểm: Nhà đầu tư thiên tài.\n"
-        "- Từ 10 đến 15 điểm: Nhà đầu tư tiềm năng.\n"
-        "- Dưới 10 điểm: Cần học hỏi thêm!\n\n"
+        "- Nếu không trả lời trong 60 giây, bạn sẽ bị tính 0 điểm.\n\n"
         "👉 Nhấn /quiz để bắt đầu!"
     )
-    update.message.reply_text(text=welcome_message, parse_mode=ParseMode.HTML)
+    await update.message.reply_text(welcome_message, parse_mode="HTML")
+
 
 # Hàm xử lý khi người dùng nhập /quiz
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
