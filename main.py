@@ -94,13 +94,50 @@ def timeout_handler(context: CallbackContext):
     chat_id = context.job.context
     bot = context.bot
 
-    # Kiểm tra trạng thái của câu hỏi hiện tại
+    # Đảm bảo không gọi timeout nhiều lần cho cùng một câu hỏi
     user_data = context.dispatcher.user_data[chat_id]
-    if user_data["current_question"] <= len(user_data["questions"]):
-        bot.send_message(chat_id=chat_id, text="⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {}/20.".format(user_data["score"]))
-        
+    current = user_data["current_question"]
+
+    # Kiểm tra nếu người dùng vẫn chưa trả lời câu hỏi hiện tại
+    if current <= len(user_data["questions"]):
+        bot.send_message(
+            chat_id=chat_id,
+            text=f"⏳ Hết thời gian cho câu này! Tổng điểm hiện tại của bạn là {user_data['score']}/20."
+        )
+
         # Gọi câu hỏi tiếp theo
         ask_question(bot.get_chat(chat_id), context)
+
+# Ask Question (cập nhật để quản lý timeout đúng cách)
+def ask_question(update: Update, context: CallbackContext):
+    current = context.user_data["current_question"]
+    questions = context.user_data["questions"]
+
+    # Hủy mọi timeout cũ trước khi đặt timeout mới
+    if "timeout_job" in context.user_data and context.user_data["timeout_job"]:
+        context.user_data["timeout_job"].schedule_removal()
+
+    if current < len(questions):
+        question = questions[current]
+        options = [question["Option 1"], question["Option 2"], question["Option 3"]]
+        context.user_data["current_question"] += 1
+
+        reply_markup = ReplyKeyboardMarkup([[1, 2, 3]], one_time_keyboard=True)
+        update.message.reply_text(
+            f"Câu {current + 1}: {question['Question']}\n"
+            f"1. {options[0]}\n"
+            f"2. {options[1]}\n"
+            f"3. {options[2]}",
+            reply_markup=reply_markup,
+        )
+
+        # Đặt timeout cho câu hỏi hiện tại
+        job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
+        context.user_data["timeout_job"] = job  # Lưu timeout job vào user_data
+        return WAIT_ANSWER
+    else:
+        finish_quiz(update, context)
+        return ConversationHandler.END
 
 # Finish Quiz
 def finish_quiz(update: Update, context: CallbackContext):
