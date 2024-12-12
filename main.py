@@ -9,7 +9,7 @@ TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1QMKiohAaO5QtHoQwBX5efTXCI_Q791A4GnoCe9nMV2w/export?format=csv&sheet=TTCK"
 
 # States
-START, QUIZ, WAIT_ANSWER = range(3)
+QUIZ, WAIT_ANSWER = range(2)
 
 # Logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -28,14 +28,6 @@ def load_questions():
 
 # Start Command
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "🔥 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /start để bắt đầu.\n"
-        "Hoặc nhấn /quiz để bắt đầu trả lời các câu hỏi!"
-    )
-    return START
-
-# Quiz Introduction
-def intro(update: Update, context: CallbackContext):
     context.user_data["questions"] = load_questions()
     context.user_data["current_question"] = 0
     context.user_data["score"] = 0
@@ -49,7 +41,7 @@ def intro(update: Update, context: CallbackContext):
         "- Có 20 câu hỏi.\n"
         "- Mỗi câu trả lời đúng được 1 điểm.\n"
         "- Nếu không trả lời trong 60 giây, bạn sẽ bị tính 0 điểm.\n\n"
-        "Nhấn /quiz để bắt đầu!"
+        "🔥 Bạn đã sẵn sàng tham gia tìm kiếm 'Ai là thiên tài đầu tư?' Bấm /quiz để bắt đầu trả lời các câu hỏi!"
     )
     return QUIZ
 
@@ -126,8 +118,7 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            START: [CommandHandler("quiz", intro)],
-            QUIZ: [CommandHandler("ask", ask_question)],
+            QUIZ: [CommandHandler("quiz", ask_question)],
             WAIT_ANSWER: [MessageHandler(Filters.regex("^[1-3]$"), handle_answer)],
         },
         fallbacks=[CommandHandler("start", start)],
