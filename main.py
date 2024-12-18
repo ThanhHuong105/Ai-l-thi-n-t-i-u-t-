@@ -5,11 +5,12 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 )
+
 from apscheduler.jobstores.base import ConflictingIdError
 
 # Bot Constants
-TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1QMKiohAaO5QtHoQwBX5efTXCI_Q791A4GnoCe9nMV2w/export?format=csv&gid=0"
+TOKEN = "7014456931:AAE5R6M9wgfMMyXPYCdogRTISwbaUjSXQRo"  # Token chính xác của "Thiên tài đầu tư"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1QMKiohAaO5QtHoQwBX5efTXCI_Q791A4GnoCe9nMV2w/export?format=csv&gid=0"  # Google Sheets chính xác của "Thiên tài đầu tư"
 
 # States
 QUIZ, WAIT_ANSWER = range(2)
@@ -44,7 +45,7 @@ def start(update: Update, context: CallbackContext):
         return
 
     update.message.reply_text(
-        "🎉 Chào mừng bạn đến với Gameshow 'Ai Là Thiên Tài Đầu Tư?'!\n\n"
+        "🎉 Chào mừng bạn đến với Gameshow 'Thiên Tài Đầu Tư'!\n\n"
         "📜 *Luật chơi:*\n"
         "- Có 20 câu hỏi.\n"
         "- Mỗi câu trả lời đúng được 1 điểm.\n"
@@ -70,7 +71,7 @@ def ask_question(update: Update, context: CallbackContext):
     current = user_data["current_question"]
     questions = user_data["questions"]
 
-    # Hủy job timeout cũ nếu tồn tại
+    # Cancel existing timeout job if any
     if "timeout_job" in user_data and user_data["timeout_job"] is not None:
         try:
             user_data["timeout_job"].remove()
@@ -91,7 +92,7 @@ def ask_question(update: Update, context: CallbackContext):
             reply_markup=reply_markup,
         )
 
-        # Đặt timeout mới
+        # Schedule a timeout job
         timeout_job = context.job_queue.run_once(timeout_handler, 60, context=update.message.chat_id)
         user_data["timeout_job"] = timeout_job
     else:
@@ -169,14 +170,14 @@ def finish_quiz(update: Update, context: CallbackContext):
     score = user_data.get("score", 0)
 
     if score >= 15:
-        result = "🥇 Nhà đầu tư thiên tài!"
+        result = "🥇 Bạn đúng là Thiên tài Đầu tư!"
     elif 12 <= score < 15:
         result = "🥈 Nhà đầu tư tiềm năng!"
     else:
-        result = "🥉 Thế giới rất rộng lớn và còn nhiều thứ phải học thêm."
+        result = "🥉 Hãy học hỏi thêm để thành công hơn."
 
     update.message.reply_text(
-        f"🎉 *Chúc mừng bạn đã hoàn thành cuộc thi 'Ai Là Thiên Tài Đầu Tư'!*\n\n"
+        f"🎉 *Chúc mừng bạn đã hoàn thành cuộc thi 'Thiên Tài Đầu Tư'!*\n\n"
         f"🏆 *Tổng điểm của bạn:* {score}/20.\n{result}"
     )
 
@@ -185,7 +186,7 @@ def main():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    # Xóa tất cả jobs khi bot khởi động
+    # Clear all jobs when the bot starts
     updater.job_queue.scheduler.remove_all_jobs()
 
     dp.add_handler(CommandHandler("start", start))
